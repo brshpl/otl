@@ -1,0 +1,48 @@
+name: CI
+on: pull_request
+
+jobs:
+  yamllint:
+    name: runner / yamllint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: reviewdog/action-yamllint@v1
+        with:
+          fail_on_error: true
+          reporter: github-pr-review
+          yamllint_flags: '-d "{extends: default, rules: {truthy: disable}}" .'
+
+  dotenv-linter:
+    name: runner / dotenv-linter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dotenv-linter/action-dotenv-linter@v2
+        with:
+          reporter: github-pr-review
+
+  tests:
+    name: runner / tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v2
+        with:
+          go-version: 1.22.1
+
+      - name: Unit Tests
+        run: "go test \
+          -v \
+          -race \
+          -covermode atomic \
+          -coverprofile=coverage.txt \
+          ./internal/..."
+      - name: Upload coverage report
+        run: bash <(curl -s https://codecov.io/bash)
+
+      - name: Integration tests
+        run: "docker-compose up \
+          --build \
+          --abort-on-container-exit \
+          --exit-code-from integration"
